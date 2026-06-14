@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Household Tracker</title>
+    <style>
+        :root {
+            --bg: #f3f4f6; --card-bg: #ffffff; --text-main: #111827; --text-muted: #6b7280;
+            --border: #e5e7eb; --accent: #111827; --danger: #ef4444; --success: #10b981; 
+            --warning: #f59e0b; --water: #0ea5e9; --nav-h: 64px;
+        }
+        
+        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background-color: var(--bg); color: var(--text-main); margin: 0; padding: 0 0 calc(var(--nav-h) + 20px) 0; }
+        
+        /* Layout & Typography */
+        .view { display: none; animation: fadeIn 0.2s ease-in; padding: 16px; }
+        .view.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .header h1 { margin: 0; font-size: 1.25rem; font-weight: 800; letter-spacing: -0.5px; }
+        
+        /* Inputs */
+        input, select { padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; background: var(--card-bg); width: 100%; outline: none; transition: border-color 0.2s; }
+        input:focus, select:focus { border-color: var(--accent); }
+        input[type="date"], input[type="datetime-local"] { width: auto; font-weight: 600; padding: 6px 10px; }
+        select.month-selector { font-size: 1.1rem; font-weight: 700; padding: 8px 12px; border-color: var(--accent); background: var(--accent); color: white; border-radius: 10px; }
+        
+        /* Cards */
+        .card { background: var(--card-bg); border-radius: 12px; padding: 16px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .card-title { font-size: 1.1rem; font-weight: 700; margin: 0; }
+        .themed-card { border-left: 5px solid var(--theme-color); }
+        .total-badge { background: var(--theme-bg, #f3f4f6); color: var(--theme-color, var(--text-main)); padding: 4px 10px; border-radius: 12px; font-weight: 700; font-size: 0.9rem; }
+        
+        /* Buttons */
+        .flex-row { display: flex; gap: 8px; margin-bottom: 12px; }
+        .btn-toggle { flex: 1; padding: 10px; border: 1px solid var(--border); background: var(--card-bg); border-radius: 8px; font-weight: 600; cursor: pointer; color: var(--text-muted); transition: all 0.2s; }
+        .btn-toggle.present.active { background: var(--theme-color, var(--accent)); color: #fff; border-color: var(--theme-color, var(--accent)); }
+        .btn-toggle.absent.active { background: var(--danger); color: #fff; border-color: var(--danger); }
+        
+        .btn { width: 100%; padding: 12px; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer; border: none; display: flex; justify-content: center; align-items: center; gap: 6px; transition: 0.2s; }
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-outline { background: transparent; border: 1px dashed var(--border); color: var(--text-muted); padding: 10px; margin-top: 8px; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-warning { background: var(--warning); color: white; }
+        .btn-water { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; margin-top: 12px; }
+
+        /* Task Lists & Quantity Controls */
+        .task-list { display: flex; flex-direction: column; gap: 10px; }
+        .task-item { display: flex; justify-content: space-between; align-items: center; font-size: 0.95rem; font-weight: 500; }
+        input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--theme-color, var(--accent)); }
+        
+        .qty-controls { display: flex; justify-content: space-between; align-items: center; background: var(--bg); padding: 8px; border-radius: 10px; margin-bottom: 12px; }
+        .btn-circle { width: 40px; height: 40px; border-radius: 8px; border: none; background: var(--card-bg); font-size: 1.5rem; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05); cursor: pointer; }
+        .qty-val { font-size: 1.4rem; font-weight: 700; }
+
+        /* Forms & Builders */
+        .input-group { margin-bottom: 12px; }
+        .input-group label { display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .sub-work-builder { border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: var(--bg); margin-bottom: 12px; }
+        .badge { display: inline-flex; align-items: center; gap: 6px; background: var(--card-bg); border: 1px solid var(--border); padding: 4px 8px; border-radius: 6px; font-size: 0.85rem; margin: 0 6px 6px 0; font-weight: 600; }
+        .badge button { background: none; border: none; color: var(--danger); font-weight: bold; font-size: 1rem; padding:0; cursor: pointer; }
+
+        /* Save Bar & Navigation */
+        .save-bar { position: fixed; bottom: calc(var(--nav-h) + 16px); left: 16px; right: 16px; z-index: 90; display: none; }
+        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: var(--nav-h); background: var(--card-bg); border-top: 1px solid var(--border); display: flex; justify-content: space-around; padding-bottom: env(safe-area-inset-bottom); z-index: 100; }
+        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: var(--text-muted); font-size: 0.7rem; font-weight: 700; cursor: pointer; transition: 0.2s;}
+        .nav-item svg { width: 22px; height: 22px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+        .nav-item.active { color: var(--accent); }
+
+        /* History Blocks */
+        .hist-block { border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 12px; }
+        .hist-block:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .hist-row { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.95rem; font-weight: 500; }
+        
+        /* Municipal Radar */
+        .water-radar { background: linear-gradient(135deg, #0ea5e9, #3b82f6); color: white; border-radius: 16px; padding: 24px; text-align: center; box-shadow: 0 4px 15px rgba(14, 165, 233, 0.3); }
+        .radar-title { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; opacity: 0.9; margin-bottom: 8px; }
+        .radar-day { font-size: 2.5rem; font-weight: 900; margin-bottom: 0; line-height: 1.1;}
+        .radar-date { font-size: 1.2rem; font-weight: 600; opacity: 0.9; margin-bottom: 20px; }
+        .radar-status { background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 20px; font-weight: 700; display: inline-block; }
+        .water-alert { background: rgba(14, 165, 233, 0.1); border: 1px solid var(--water); color: var(--water); padding: 12px; border-radius: 8px; font-weight: 700; margin-bottom: 16px; display: none; align-items: center; gap: 8px; }
+
+        .section-title { font-size: 1.1rem; font-weight: 800; color: var(--text-main); margin: 24px 0 12px 0; text-transform: uppercase; letter-spacing: 0.5px; }
+        .icon { width: 18px; height: 18px; }
+    </style>
+</head>
+<body>
+
+    <!-- ================== 1. DASHBOARD TAB ================== -->
+    <div id="view-dashboard" class="view active">
+        <div class="header">
+            <h1>Daily Dashboard</h1>
+            <input type="date" id="datePicker" onchange="changeDate(this.value)">
+        </div>
+
+        <div id="dashWaterAlert" class="water-alert">
+            <svg class="icon"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            <span>Municipal Water arriving within 24hrs!</span>
+        </div>
+
+        <div id="dashMaids"></div>
+        <div id="dashMilk"></div>
+        <div id="dashWater"></div>
+    </div>
+
+    <!-- Floating Save Button -->
+    <div id="saveBar" class="save-bar">
+        <button id="btnSaveDashboard" class="btn btn-warning" style="box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);" onclick="commitDashboard()">
+            <svg class="icon"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline></svg>
+            Save Today's Logs
+        </button>
+    </div>
+
+    <!-- ================== 2. HISTORY TAB ================== -->
+    <div id="view-history" class="view">
+        <div class="header" style="justify-content: center;">
+            <select id="monthSelector" class="month-selector" onchange="renderHistory()"></select>
+        </div>
+        <div class="card"><h2 class="card-title" style="margin-bottom:16px;">Staff Payroll</h2><div id="histMaids"></div></div>
+        <div class="card"><h2 class="card-title" style="margin-bottom:16px;">Milk Supply</h2><div id="histMilk"></div></div>
+        <div class="card"><h2 class="card-title" style="margin-bottom:16px;">Drinking Water</h2><div id="histWater"></div></div>
+    </div>
+
+    <!-- ================== 3. WATER SCHEDULE TAB ================== -->
+    <div id="view-radar" class="view">
+        <div class="header"><h1>Municipal Supply</h1></div>
+        
+        <div class="water-radar">
+            <div class="radar-title">Next Expected Supply</div>
+            <div id="radarNextDay" class="radar-day">--</div>
+            <div id="radarNextDate" class="radar-date">--</div>
+            <div id="radarCountdown" class="radar-status">Loading...</div>
+            
+            <button class="btn btn-water" onclick="setPhoneAlarm()">
+                <svg class="icon" style="margin-right:4px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                Set Calendar Alarm
+            </button>
+        </div>
+
+        <div class="card" style="margin-top: 24px;">
+            <h2 class="card-title">Configure Schedule</h2>
+            <div class="grid-2">
+                <div class="input-group">
+                    <label>Gap Days (Zero Supply)</label>
+                    <input type="number" id="radarGapDays" value="4" min="0">
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Date & Time Last Received</label>
+                <input type="datetime-local" id="radarInput">
+            </div>
+            <button class="btn btn-primary" onclick="updateRadar()">Save Schedule</button>
+        </div>
+    </div>
+
+    <!-- ================== 4. SETTINGS TAB ================== -->
+    <div id="view-settings" class="view">
+        <div class="header"><h1>App Settings</h1></div>
+        
+        <!-- Editor Form -->
+        <div class="card">
+            <div class="input-group" style="margin:0;">
+                <select id="editProfileSelect" onchange="loadEditor(this.value)"><option value="">-- Edit Existing Profile --</option></select>
+            </div>
+            
+            <div id="editorForm" style="display: none; margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px;">
+                <input type="hidden" id="editId"> <input type="hidden" id="editType">
+                <div class="input-group"><label>Name</label><input type="text" id="editName"></div>
+                
+                <!-- Dynamic Fields based on Type -->
+                <div id="editMaidFields" style="display: none;">
+                    <div class="grid-2">
+                        <div class="input-group">
+                            <label>Pay Type</label>
+                            <select id="editPayType" onchange="togglePay('edit')"><option value="fixed">Fixed Rate</option><option value="task_based">Task Based</option></select>
+                        </div>
+                        <div class="input-group"><label>Base (₹)</label><input type="number" id="editSalary"></div>
+                    </div>
+                    <div class="input-group"><label>Paid Leaves / Month</label><input type="number" id="editLeaves" value="0"></div>
+                    <label style="font-size: 0.8rem; font-weight:700; color:var(--text-muted); margin-bottom:4px; display:block;">Tasks & Details</label>
+                    <div class="sub-work-builder"><div id="editSubWorksList"></div><button class="btn-outline" onclick="addWk('edit')">+ Add Task</button></div>
+                </div>
+
+                <div id="editProvFields" style="display: none;">
+                    <div class="grid-2">
+                        <div class="input-group"><label>Rate/Unit (₹)</label><input type="number" id="editProvRate"></div>
+                        <div class="input-group"><label>Default Qty</label><input type="number" step="any" id="editProvQty"></div>
+                    </div>
+                </div>
+
+                <div class="flex-row" style="margin-top:12px; margin-bottom:0;">
+                    <button class="btn btn-success" onclick="saveEditor()">Save Changes</button>
+                    <button class="btn btn-outline" style="margin-top:0; color:var(--danger); border-color:var(--danger);" onclick="delProfile()">Delete</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-title">Register New</div>
+
+        <!-- Add Maid -->
+        <div class="card">
+            <h2 class="card-title" style="margin-bottom:12px;">Staff Profile</h2>
+            <div class="input-group"><input type="text" id="newMaidName" placeholder="Name (e.g., Rani)"></div>
+            <div class="grid-2">
+                <div class="input-group"><select id="newMaidPayType" onchange="togglePay('newMaid')"><option value="fixed">Fixed Rate</option><option value="task_based">Task Based</option></select></div>
+                <div class="input-group"><input type="number" id="newMaidSalary" placeholder="Base ₹"></div>
+            </div>
+            <div class="input-group"><label>Paid Leaves / Month</label><input type="number" id="newMaidLeaves" placeholder="e.g., 2" value="0"></div>
+            
+            <label style="font-size: 0.8rem; font-weight:700; color:var(--text-muted); margin-bottom:4px; display:block;">Tasks</label>
+            <div class="sub-work-builder"><div id="newMaidSubWorksList"></div><button class="btn-outline" onclick="addWk('newMaid')">+ Add Task</button></div>
+            <button class="btn btn-primary" onclick="addMaid()">Save Staff Profile</button>
+        </div>
+
+        <!-- Add Provider -->
+        <div class="card">
+            <h2 class="card-title" style="margin-bottom:12px;">Delivery Provider</h2>
+            <div class="grid-2">
+                <div class="input-group">
+                    <select id="newProvType" onchange="document.getElementById('newProvQty').step = this.value === 'waterCans' ? '1' : '0.5'">
+                        <option value="milkmen">Milkman</option>
+                        <option value="waterCans">Drinking Water</option>
+                    </select>
+                </div>
+                <div class="input-group"><input type="text" id="newProvName" placeholder="Brand/Name"></div>
+                <div class="input-group"><input type="number" id="newProvRate" placeholder="Rate per unit ₹"></div>
+                <div class="input-group"><input type="number" step="0.5" id="newProvQty" placeholder="Daily Drop Qty"></div>
+            </div>
+            <button class="btn btn-primary" onclick="addProv()">Save Provider</button>
+        </div>
+
+        <!-- Data Safety (Backup & Restore) -->
+        <div class="section-title" style="color:var(--danger)">Data Safety & Backup</div>
+        <div class="card" style="border: 1px solid var(--danger);">
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-top:0;">Download your data file so you don't lose it if you clear your cache or change phones.</p>
+            <button class="btn btn-primary" style="background:var(--accent); margin-bottom:12px;" onclick="exportData()">💾 Download Backup File</button>
+            
+            <label class="btn btn-outline" style="margin:0; text-align:center; display:block; cursor:pointer;">
+                <input type="file" id="importFile" accept=".json" style="display:none;" onchange="importData(event)">
+                📂 Restore from Backup
+            </label>
+        </div>
+    </div>
+
+    <!-- ================== NAVIGATION ================== -->
+    <nav class="bottom-nav">
+        <div class="nav-item active" onclick="switchTab('dashboard')"><svg><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>Home</div>
+        <div class="nav-item" onclick="switchTab('history')"><svg><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>Summary</div>
+        <div class="nav-item" onclick="switchTab('radar')"><svg><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg>Schedule</div>
+        <div class="nav-item" onclick="switchTab('settings')"><svg><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>Settings</div>
+    </nav>
+
+    <!-- ================== SCRIPT LOGIC ================== -->
+    <script>
+        // --- 1. Global Setup & Initialization ---
+        const THEMES = [{m:'#3b82f6', b:'#eff6ff'}, {m:'#8b5cf6', b:'#f5f3ff'}, {m:'#10b981', b:'#ecfdf5'}, {m:'#f59e0b', b:'#fffbeb'}, {m:'#ec4899', b:'#fdf2f8'}];
+        let today = new Date().toISOString().split('T')[0];
+        let selDate = today; 
+        document.getElementById('datePicker').value = selDate;
+        
+        let unsaved = false; 
+        let tempWkNew = [], tempWkEd = [];
+
+        // Data Store structure
+        let state = JSON.parse(localStorage.getItem('ht_state')) || { 
+            maids: [], 
+            milkmen: [], 
+            waterCans: [], 
+            logs: {}, 
+            localWater: { lastStr: null, gap: 4 } 
+        };
+        
+        // Ensure legacy states have new properties
+        if(!state.waterCans) state.waterCans = [];
+        if(!state.localWater) state.localWater = { lastStr: null, gap: 4 };
+        if(state.localWater.gap === undefined) state.localWater.gap = (state.localWater.cycle && state.localWater.cycle === 5) ? 4 : (state.localWater.cycle || 4);
+
+        // Pre-fill daily logs to prevent undefined errors
+        function buildDailyLogShell(dateStr) {
+            if (!state.logs[dateStr]) state.logs[dateStr] = { maids: {}, milkmen: {}, waterCans: {} };
+            if (!state.logs[dateStr].waterCans) state.logs[dateStr].waterCans = {};
+            
+            state.maids.forEach(m => { 
+                if(!state.logs[dateStr].maids[m.id]) state.logs[dateStr].maids[m.id] = { present: true, completedWorks: m.subWorks.map(w=>w.id), extraAmt: 0 }; 
+            });
+            state.milkmen.forEach(m => { 
+                if(!state.logs[dateStr].milkmen[m.id]) state.logs[dateStr].milkmen[m.id] = { qty: m.defaultQty }; 
+            });
+            state.waterCans.forEach(m => { 
+                if(!state.logs[dateStr].waterCans[m.id]) state.logs[dateStr].waterCans[m.id] = { qty: m.defaultQty }; 
+            });
+        }
+
+        // --- 2. System State Management ---
+        function setUnsaved() { 
+            unsaved = true; 
+            document.getElementById('saveBar').style.display = 'block'; 
+            let btn = document.getElementById('btnSaveDashboard'); 
+            btn.innerHTML = `<svg class="icon"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline></svg> Save Today's Logs`; 
+            btn.className = "btn btn-warning"; 
+            renderDash(); 
+        }
+
+        function commitDashboard() { 
+            localStorage.setItem('ht_state', JSON.stringify(state)); 
+            unsaved = false; 
+            let btn = document.getElementById('btnSaveDashboard'); 
+            btn.innerHTML = "✓ Saved Successfully"; 
+            btn.className = "btn btn-success"; 
+            setTimeout(() => { if(!unsaved) document.getElementById('saveBar').style.display='none'; }, 1000); 
+            buildMonthDropdown(); 
+        }
+
+        function changeDate(newDate) { 
+            if (unsaved && !confirm("Discard unsaved changes?")) { document.getElementById('datePicker').value = selDate; return; } 
+            unsaved = false; 
+            document.getElementById('saveBar').style.display = 'none'; 
+            state = JSON.parse(localStorage.getItem('ht_state')) || state; // Reload clean state
+            selDate = newDate; 
+            buildDailyLogShell(selDate); 
+            renderDash(); 
+        }
+
+        function switchTab(tabId) { 
+            if (tabId !== 'dashboard' && unsaved) { 
+                if(!confirm("Discard unsaved logs?")) return; 
+                state = JSON.parse(localStorage.getItem('ht_state')) || state; 
+                unsaved = false; 
+                document.getElementById('saveBar').style.display='none'; 
+                buildDailyLogShell(selDate); 
+                renderDash(); 
+            }
+            
+            document.querySelectorAll('.view, .nav-item').forEach(e => e.classList.remove('active'));
+            document.getElementById('view-' + tabId).classList.add('active');
+            
+            let idx = {'dashboard':0, 'history':1, 'radar':2, 'settings':3}[tabId];
+            document.querySelectorAll('.nav-item')[idx].classList.add('active');
+            
+            if(tabId === 'history') { buildMonthDropdown(); renderHistory(); }
+            if(tabId === 'radar') renderWaterSchedule();
+            if(tabId === 'settings') populateEditorDropdown();
+        }
+
+        // --- 3. Calculation Engines ---
+        function calculateMaidMetrics(maid, monthPrefix) {
+            let pType = maid.payType || 'fixed'; 
+            let leaves = parseInt(maid.paidLeaves) || 0;
+            let monthlyBase = pType === 'task_based' ? maid.subWorks.reduce((s, w) => s + (w.rate||0), 0) : maid.baseSalary;
+            
+            let dailyRate = monthlyBase / 30; 
+            let absences = 0, taskDeductions = 0, extraCash = 0;
+            
+            for(let date in state.logs) {
+                if(date.startsWith(monthPrefix) && state.logs[date].maids[maid.id]) {
+                    let log = state.logs[date].maids[maid.id];
+                    if(!log.present) {
+                        absences++;
+                    } else { 
+                        maid.subWorks.forEach(w => { 
+                            if(!log.completedWorks.includes(w.id)) {
+                                taskDeductions += (pType === 'task_based' ? (w.rate / 30) : w.ded); 
+                            }
+                        }); 
+                        extraCash += (log.extraAmt || 0); 
+                    }
+                }
+            }
+            
+            let chargeableAbsences = Math.max(0, absences - leaves); 
+            let totalDeductions = (chargeableAbsences * dailyRate) + taskDeductions;
+            
+            return { 
+                base: monthlyBase, 
+                absTaken: absences, 
+                leaves: leaves, 
+                deds: Math.round(totalDeductions), 
+                ext: extraCash, 
+                net: Math.round(monthlyBase - totalDeductions + extraCash) 
+            };
+        }
+
+        function calculateProviderMetrics(type, prov, monthPrefix) {
+            let totalQty = 0; 
+            for(let date in state.logs) {
+                if(date.startsWith(monthPrefix) && state.logs[date][type] && state.logs[date][type][prov.id]) {
+                    totalQty += state.logs[date][type][prov.id].qty;
+                }
+            }
+            return { q: totalQty, net: totalQty * prov.rate };
+        }
+
+        // --- 4. Dashboard UI Logic ---
+        function handleMaidAtt(id, isPresent) { state.logs[selDate].maids[id].present = isPresent; setUnsaved(); }
+        function handleMaidTask(mId, wId) { 
+            let compWorks = state.logs[selDate].maids[mId].completedWorks; 
+            compWorks.includes(wId) ? state.logs[selDate].maids[mId].completedWorks = compWorks.filter(i => i !== wId) : compWorks.push(wId); 
+            setUnsaved(); 
+        }
+        function handleExtraCash(id) { 
+            let amt = prompt("Enter extra amount (₹):"); 
+            if(amt && !isNaN(amt)) { state.logs[selDate].maids[id].extraAmt += parseInt(amt); setUnsaved(); } 
+        }
+        function handleProvQty(type, id, change) { 
+            let newVal = state.logs[selDate][type][id].qty + change; 
+            if(newVal >= 0) { state.logs[selDate][type][id].qty = newVal; setUnsaved(); } 
+        }
+        function skipProvDelivery(type, id) { state.logs[selDate][type][id].qty = 0; setUnsaved(); }
+
+        function renderDash() {
+            // Water Alert Check
+            let alertBox = document.getElementById('dashWaterAlert');
+            if(state.localWater.lastStr) {
+                let gapDays = state.localWater.gap !== undefined ? state.localWater.gap : 4;
+                let daysToAdd = gapDays + 1; 
+                let nextDate = new Date(new Date(state.localWater.lastStr).getTime() + (daysToAdd * 24*60*60*1000));
+                let hoursDiff = (nextDate - new Date()) / (1000*60*60);
+                if(hoursDiff > 0 && hoursDiff <= 24) alertBox.style.display = 'flex';
+                else alertBox.style.display = 'none';
+            } else alertBox.style.display = 'none';
+
+            // Render Maids
+            let maidsHtml = ''; 
+            state.maids.forEach((m, index) => {
+                let log = state.logs[selDate].maids[m.id];
+                let pType = m.payType || 'fixed';
+                let theme = THEMES[index % THEMES.length];
+                let todayMetrics = calculateMaidMetrics(m, selDate.substring(0,7)); 
+                
+                maidsHtml += `<div class="card themed-card" style="--theme-color:${theme.m};--theme-bg:${theme.b};">
+                    <div class="card-header"><h2 class="card-title">${m.name}</h2><div class="total-badge">Est. ₹${todayMetrics.net}</div></div>
+                    <div class="flex-row">
+                        <button class="btn-toggle present ${log.present ? 'active' : ''}" onclick="handleMaidAtt('${m.id}', true)">Present</button>
+                        <button class="btn-toggle absent ${!log.present ? 'active' : ''}" onclick="handleMaidAtt('${m.id}', false)">Absent</button>
+                    </div>
+                    <div class="task-list">`;
+                
+                if(log.present) {
+                    m.subWorks.forEach(w => {
+                        let isChecked = log.completedWorks.includes(w.id) ? 'checked' : '';
+                        let dVal = pType === 'task_based' ? Math.round(w.rate / 30) : w.ded;
+                        maidsHtml += `<div class="task-item"><label><input type="checkbox" onchange="handleMaidTask('${m.id}','${w.id}')" ${isChecked}> ${w.name}</label><span style="color:var(--danger)">-₹${dVal}</span></div>`;
+                    });
+                    if(log.extraAmt > 0) maidsHtml += `<div class="task-item" style="color:var(--success);"><span>Extra Pay Added</span><span>+₹${log.extraAmt}</span></div>`;
+                }
+                maidsHtml += `</div><button class="btn-outline" onclick="handleExtraCash('${m.id}')">+ Add Extra Cash</button></div>`;
+            }); 
+            document.getElementById('dashMaids').innerHTML = maidsHtml ? `<div class="section-title">Maids</div>${maidsHtml}` : '';
+
+            // Render Providers
+            let milkHtml = ''; 
+            state.milkmen.forEach(m => milkHtml += buildProviderCardUI('milkmen', m, state.logs[selDate].milkmen[m.id])); 
+            document.getElementById('dashMilk').innerHTML = milkHtml ? `<div class="section-title">Milk Delivery</div>${milkHtml}` : '';
+
+            let waterHtml = ''; 
+            state.waterCans.forEach(m => waterHtml += buildProviderCardUI('waterCans', m, state.logs[selDate].waterCans[m.id])); 
+            document.getElementById('dashWater').innerHTML = waterHtml ? `<div class="section-title">Drinking Water</div>${waterHtml}` : '';
+        }
+
+        function buildProviderCardUI(type, prov, log) {
+            if(!log) log = { qty: 0 }; 
+            let step = (type === 'waterCans') ? 1 : 0.5; // Whole numbers for water
+            let unit = (type === 'waterCans') ? 'Cans' : 'Liters';
+            return `<div class="card"><div class="card-header"><h2 class="card-title">${prov.name}</h2><div class="total-badge" style="background:var(--bg); color:var(--text-main);">₹${prov.rate} / ${unit}</div></div>
+            <div class="qty-controls"><button class="btn-circle" onclick="handleProvQty('${type}','${prov.id}',-${step})">-</button><span class="qty-val">${log.qty}</span><button class="btn-circle" onclick="handleProvQty('${type}','${prov.id}',${step})">+</button></div>
+            <button class="btn-toggle absent" style="width:100%; border-color:var(--danger); color:var(--danger);" onclick="skipProvDelivery('${type}','${prov.id}')">Skip Delivery Today</button></div>`;
+        }
+
+        // --- 5. History UI Logic ---
+        function buildMonthDropdown() {
+            let monthSet = new Set([today.substring(0,7)]); 
+            Object.keys(state.logs).forEach(date => monthSet.add(date.substring(0,7)));
+            
+            let sortedArr = Array.from(monthSet).sort().reverse(); 
+            let selectEl = document.getElementById('monthSelector'); 
+            let currentSelection = selectEl.value;
+            
+            selectEl.innerHTML = sortedArr.map(m => `<option value="${m}">${new Date(m + '-01').toLocaleString('default', {month:'long', year:'numeric'})}</option>`).join('');
+            if(currentSelection && sortedArr.includes(currentSelection)) selectEl.value = currentSelection;
+        }
+
+        function renderHistory() {
+            let monthPrefix = document.getElementById('monthSelector').value;
+            
+            // Render Maid History
+            let maidsHtml = ''; 
+            state.maids.forEach(m => { 
+                let st = calculateMaidMetrics(m, monthPrefix); 
+                let leaveStr = st.leaves > 0 ? `<span style="font-size:0.8rem; opacity:0.8;">(${st.absTaken} absent, ${st.leaves} free)</span>` : '';
+                maidsHtml += `<div class="hist-block"><h3>${m.name}</h3><div class="hist-row"><span>Monthly Base</span><span>₹${st.base}</span></div><div class="hist-row" style="color:var(--danger);"><span>Deductions ${leaveStr}</span><span>-₹${st.deds}</span></div><div class="hist-row" style="color:var(--success);"><span>Extra Cash</span><span>+₹${st.ext}</span></div><div class="hist-row" style="font-weight:800; margin-top:6px;"><span>Net Payable</span><span>₹${st.net}</span></div></div>`; 
+            }); 
+            document.getElementById('histMaids').innerHTML = maidsHtml || '<div style="text-align:center; color:var(--text-muted); font-size:0.9rem;">No maids active.</div>';
+
+            // Render Provider History
+            let milkHtml = ''; 
+            state.milkmen.forEach(m => { 
+                let st = calculateProviderMetrics('milkmen', m, monthPrefix); 
+                milkHtml += `<div class="hist-block"><h3>${m.name}</h3><div class="hist-row"><span>Total Delivered</span><span>${st.q} Liters</span></div><div class="hist-row" style="font-weight:800; margin-top:6px;"><span>Net Payable</span><span>₹${st.net}</span></div></div>`; 
+            }); 
+            document.getElementById('histMilk').innerHTML = milkHtml || '<div style="text-align:center; color:var(--text-muted); font-size:0.9rem;">No milk active.</div>';
+            
+            let waterHtml = ''; 
+            state.waterCans.forEach(m => { 
+                let st = calculateProviderMetrics('waterCans', m, monthPrefix); 
+                waterHtml += `<div class="hist-block"><h3>${m.name}</h3><div class="hist-row"><span>Total Delivered</span><span>${st.q} Cans</span></div><div class="hist-row" style="font-weight:800; margin-top:6px;"><span>Net Payable</span><span>₹${st.net}</span></div></div>`; 
+            }); 
+            document.getElementById('histWater').innerHTML = waterHtml || '<div style="text-align:center; color:var(--text-muted); font-size:0.9rem;">No water active.</div>';
+        }
+
+        // --- 6. Municipal Water Schedule ---
+        let radarInterval;
+
+        function updateRadar() {
+            let inputDate = document.getElementById('radarInput').value;
+            let gapDays = parseInt(document.getElementById('radarGapDays').value);
+            
+            if(!inputDate || isNaN(gapDays)) return alert("Please select a date/time and enter the Gap Days.");
+            
+            state.localWater.lastStr = inputDate;
+            state.localWater.gap = gapDays;
+            localStorage.setItem('ht_state', JSON.stringify(state)); 
+            
+            renderWaterSchedule(); 
+            alert("Supply Schedule Updated!");
+        }
+
+        function calculateNextWaterArrival() {
+            if(!state.localWater.lastStr) return null;
+            let gapDays = state.localWater.gap !== undefined ? state.localWater.gap : 4;
+            let daysToAdd = gapDays + 1; // Arrives on the day AFTER the gap finishes
+            return new Date(new Date(state.localWater.lastStr).getTime() + (daysToAdd * 24*60*60*1000));
+        }
+
+        function renderWaterSchedule() {
+            clearInterval(radarInterval);
+            document.getElementById('radarGapDays').value = state.localWater.gap !== undefined ? state.localWater.gap : 4;
+
+            let nextDate = calculateNextWaterArrival();
+            if(!nextDate) { 
+                document.getElementById('radarNextDay').innerText = "Not Set"; 
+                document.getElementById('radarNextDate').innerText = "--"; 
+                document.getElementById('radarCountdown').innerText = "Update baseline below"; 
+                return; 
+            }
+            
+            document.getElementById('radarNextDay').innerText = nextDate.toLocaleDateString('default', {weekday:'long'});
+            document.getElementById('radarNextDate').innerText = nextDate.toLocaleDateString('default', {month:'short', day:'numeric'}) + ", " + nextDate.toLocaleTimeString('default', {hour:'2-digit', minute:'2-digit'});
+            document.getElementById('radarInput').value = state.localWater.lastStr;
+
+            // Live Countdown Timer
+            radarInterval = setInterval(() => {
+                let diff = nextDate - new Date(); 
+                let statusBadge = document.getElementById('radarCountdown');
+                
+                if(diff <= 0) { 
+                    statusBadge.innerText = "Arriving Now / Overdue!"; 
+                    statusBadge.style.background = "rgba(255,0,0,0.5)"; 
+                } else { 
+                    let d = Math.floor(diff/(1000*60*60*24));
+                    let h = Math.floor((diff/(1000*60*60))%24);
+                    let m = Math.floor((diff/1000/60)%60); 
+                    statusBadge.innerText = `In ${d}d ${h}h ${m}m`; 
+                    statusBadge.style.background = "rgba(255,255,255,0.2)"; 
+                }
+            }, 1000);
+        }
+
+        function setPhoneAlarm() {
+            let nextDate = calculateNextWaterArrival();
+            if(!nextDate) return alert("Please configure the schedule first!");
+            if(nextDate < new Date()) return alert("Next arrival is in the past. Update the schedule.");
+
+            // ICS format needs UTC times without punctuation
+            let startStr = nextDate.toISOString().replace(/-|:|\.\d+/g, '').substring(0,15) + 'Z';
+            let endDate = new Date(nextDate.getTime() + 60*60*1000); // 1 hour duration
+            let endStr = endDate.toISOString().replace(/-|:|\.\d+/g, '').substring(0,15) + 'Z';
+
+            let icsData = `BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+DTSTART:${startStr}
+DTEND:${endStr}
+SUMMARY:Water Supply Expected
+DESCRIPTION:Municipal water schedule arriving.
+BEGIN:VALARM
+TRIGGER:-PT15H
+ACTION:DISPLAY
+DESCRIPTION:Reminder: Water supply is tomorrow!
+END:VALARM
+END:VEVENT
+END:VCALENDAR`;
+
+            let blob = new Blob([icsData], { type: 'text/calendar' });
+            let link = document.createElement('a'); 
+            link.href = window.URL.createObjectURL(blob); 
+            link.setAttribute('download', 'Water_Alarm.ics');
+            document.body.appendChild(link); 
+            link.click(); 
+            document.body.removeChild(link);
+            alert("Alarm downloaded. Open it to save to your phone's calendar!");
+        }
+
+        // --- 7. Settings UI Logic ---
+        function togglePay(prefix) { 
+            let type = document.getElementById(prefix + 'PayType').value;
+            let salInput = document.getElementById(prefix + 'Salary'); 
+            
+            if(type === 'fixed'){
+                salInput.readOnly = false; salInput.placeholder = "Base Salary"; salInput.value = '';
+            } else {
+                salInput.readOnly = true; salInput.placeholder = "Auto Calculated"; salInput.value = 0;
+            } 
+            
+            // Clear tasks on switch to prevent logic errors
+            if(prefix === 'newMaid') { tempWkNew = []; buildTaskUI('newMaidSubWorksList', tempWkNew, prefix); }
+            else { tempWkEd = []; buildTaskUI('editSubWorksList', tempWkEd, prefix); } 
+        }
+
+        function buildTaskUI(containerId, arr, prefix) { 
+            let pType = document.getElementById(prefix + 'PayType').value; 
+            let html = '', totalSum = 0; 
+            
+            arr.forEach((w, i) => { 
+                let badgeText = pType === 'fixed' ? `-₹${w.ded}` : `₹${w.rate}/mo`; 
+                if(pType === 'task_based') totalSum += w.rate; 
+                html += `<div class="badge">${w.name} <span>${badgeText}</span> <button onclick="removeTask(${i},'${prefix}')">×</button></div>`; 
+            }); 
+            
+            document.getElementById(containerId).innerHTML = html; 
+            if(pType === 'task_based') document.getElementById(prefix + 'Salary').value = totalSum; 
+        }
+
+        function removeTask(index, prefix) { 
+            if(prefix === 'edit') { tempWkEd.splice(index, 1); buildTaskUI('editSubWorksList', tempWkEd, prefix); } 
+            else { tempWkNew.splice(index, 1); buildTaskUI('newMaidSubWorksList', tempWkNew, prefix); } 
+        }
+
+        function addWk(prefix) { 
+            let name = prompt("Task Name (e.g. Cooking):"); 
+            if(!name) return; 
+            
+            let pType = document.getElementById(prefix + 'PayType').value; 
+            if(pType === 'fixed') { 
+                let ded = prompt("Penalty if skipped (₹):"); 
+                if(ded && !isNaN(ded)) {
+                    let arr = prefix === 'edit' ? tempWkEd : tempWkNew;
+                    arr.push({id:'w_'+Date.now(), name:name, ded:parseInt(ded), rate:0}); 
+                } 
+            } else { 
+                let rate = prompt("Monthly Pay for Task (₹):"); 
+                if(rate && !isNaN(rate)) {
+                    let arr = prefix === 'edit' ? tempWkEd : tempWkNew;
+                    arr.push({id:'w_'+Date.now(), name:name, ded:0, rate:parseInt(rate)}); 
+                } 
+            } 
+            buildTaskUI(prefix === 'edit' ? 'editSubWorksList' : 'newMaidSubWorksList', prefix === 'edit' ? tempWkEd : tempWkNew, prefix); 
+        }
+
+        // --- Profile Creation & Editing ---
+        function addMaid() { 
+            let name = document.getElementById('newMaidName').value.trim();
+            let base = parseInt(document.getElementById('newMaidSalary').value);
+            let leaves = parseInt(document.getElementById('newMaidLeaves').value) || 0; 
+            
+            if(!name || isNaN(base)) return alert("Name & Base Salary required."); 
+            
+            state.maids.push({
+                id: 'm_' + Date.now(), 
+                name: name, 
+                payType: document.getElementById('newMaidPayType').value, 
+                baseSalary: base, 
+                paidLeaves: leaves, 
+                subWorks: [...tempWkNew]
+            }); 
+            
+            // Clean UI
+            document.getElementById('newMaidName').value=''; document.getElementById('newMaidSalary').value=''; document.getElementById('newMaidLeaves').value='0'; 
+            tempWkNew = []; buildTaskUI('newMaidSubWorksList', tempWkNew, 'newMaid'); 
+            
+            // Save
+            buildDailyLogShell(selDate); localStorage.setItem('ht_state', JSON.stringify(state)); alert("Profile Saved!"); 
+        }
+
+        function addProv() { 
+            let type = document.getElementById('newProvType').value;
+            let name = document.getElementById('newProvName').value.trim();
+            let rate = parseInt(document.getElementById('newProvRate').value);
+            let qtyStr = document.getElementById('newProvQty').value;
+            let qty = (type === 'waterCans') ? parseInt(qtyStr) : parseFloat(qtyStr);
+            
+            if(!name || isNaN(rate) || isNaN(qty)) return alert("Fill all fields accurately."); 
+            
+            state[type].push({ id: 'p_' + Date.now(), name: name, rate: rate, defaultQty: qty }); 
+            
+            document.getElementById('newProvName').value=''; document.getElementById('newProvRate').value=''; document.getElementById('newProvQty').value=''; 
+            buildDailyLogShell(selDate); localStorage.setItem('ht_state', JSON.stringify(state)); alert("Provider Saved!"); 
+        }
+
+        function populateEditorDropdown() { 
+            let optionsHtml = `<option value="">-- Edit Existing Profile --</option>`; 
+            state.maids.forEach(m => optionsHtml += `<option value="maid|${m.id}">Staff: ${m.name}</option>`); 
+            state.milkmen.forEach(m => optionsHtml += `<option value="milkmen|${m.id}">Milk: ${m.name}</option>`); 
+            state.waterCans.forEach(m => optionsHtml += `<option value="waterCans|${m.id}">Water Can: ${m.name}</option>`); 
+            document.getElementById('editProfileSelect').innerHTML = optionsHtml; 
+            document.getElementById('editorForm').style.display = 'none'; 
+        }
+
+        function loadEditor(val) { 
+            if(!val) return document.getElementById('editorForm').style.display = 'none'; 
+            let [type, id] = val.split('|'); 
+            
+            document.getElementById('editorForm').style.display = 'block'; 
+            document.getElementById('editId').value = id; 
+            document.getElementById('editType').value = type; 
+            
+            if(type === 'maid') { 
+                let m = state.maids.find(x => x.id === id); 
+                document.getElementById('editName').value = m.name; 
+                document.getElementById('editPayType').value = m.payType || 'fixed'; 
+                document.getElementById('editSalary').value = m.baseSalary; 
+                document.getElementById('editLeaves').value = m.paidLeaves || 0; 
+                document.getElementById('editSalary').readOnly = (m.payType === 'task_based'); 
+                
+                tempWkEd = JSON.parse(JSON.stringify(m.subWorks)); 
+                buildTaskUI('editSubWorksList', tempWkEd, 'edit'); 
+                
+                document.getElementById('editMaidFields').style.display = 'block'; 
+                document.getElementById('editProvFields').style.display = 'none'; 
+            } else { 
+                let p = state[type].find(x => x.id === id); 
+                document.getElementById('editName').value = p.name; 
+                document.getElementById('editProvRate').value = p.rate; 
+                document.getElementById('editProvQty').value = p.defaultQty; 
+                
+                document.getElementById('editMaidFields').style.display = 'none'; 
+                document.getElementById('editProvFields').style.display = 'block'; 
+            } 
+        }
+
+        function saveEditor() { 
+            let id = document.getElementById('editId').value;
+            let type = document.getElementById('editType').value;
+            let name = document.getElementById('editName').value.trim(); 
+            
+            if(type === 'maid') { 
+                let m = state.maids.find(x => x.id === id); 
+                m.name = name; 
+                m.payType = document.getElementById('editPayType').value; 
+                m.baseSalary = parseInt(document.getElementById('editSalary').value); 
+                m.paidLeaves = parseInt(document.getElementById('editLeaves').value) || 0; 
+                m.subWorks = [...tempWkEd]; 
+            } else { 
+                let p = state[type].find(x => x.id === id); 
+                p.name = name; 
+                p.rate = parseInt(document.getElementById('editProvRate').value); 
+                p.defaultQty = (type === 'waterCans') ? parseInt(document.getElementById('editProvQty').value) : parseFloat(document.getElementById('editProvQty').value); 
+            } 
+            localStorage.setItem('ht_state', JSON.stringify(state)); 
+            populateEditorDropdown(); alert("Profile Updated!"); buildDailyLogShell(selDate); renderDash(); 
+        }
+
+        function delProfile() { 
+            if(!confirm("Permenantly delete this profile?")) return; 
+            let id = document.getElementById('editId').value;
+            let type = document.getElementById('editType').value; 
+            
+            if(type === 'maid') state.maids = state.maids.filter(x => x.id !== id); 
+            else state[type] = state[type].filter(x => x.id !== id); 
+            
+            localStorage.setItem('ht_state', JSON.stringify(state)); 
+            populateEditorDropdown(); buildDailyLogShell(selDate); renderDash(); 
+        }
+
+        // --- Data Backup & Restore ---
+        function exportData() {
+            let dataStr = JSON.stringify(state);
+            let blob = new Blob([dataStr], { type: "application/json" });
+            let url = URL.createObjectURL(blob);
+            let a = document.createElement('a');
+            a.href = url;
+            let dateStr = new Date().toISOString().split('T')[0];
+            a.download = `HouseholdApp_Backup_${dateStr}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function importData(event) {
+            let file = event.target.files[0];
+            if (!file) return;
+            
+            let reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    let parsedData = JSON.parse(e.target.result);
+                    if(parsedData && typeof parsedData === 'object') {
+                        state = parsedData;
+                        localStorage.setItem('ht_state', JSON.stringify(state));
+                        alert("Data successfully restored!");
+                        window.location.reload(); // Reload to refresh all data states
+                    } else {
+                        throw new Error("Invalid format");
+                    }
+                } catch(err) {
+                    alert("Error reading backup file. Please ensure it is the correct .json file.");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // --- System Boot ---
+        buildDailyLogShell(selDate); 
+        buildMonthDropdown(); 
+        renderDash();
+    </script>
+</body>
+</html>
